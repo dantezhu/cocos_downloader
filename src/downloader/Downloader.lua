@@ -57,7 +57,9 @@ function M:execute(url, timeout, succCallback, failCallback, timeoutCallback)
     if io.exists(path) then
         -- 延迟一个帧，因为调用方可能还想存下taskID
         self:scheduleScriptFuncOnce(function ()
-                succCallback(path)
+                if succCallback ~= nil then
+                    succCallback(path)
+                end
         end, 0)
         return taskID
     end
@@ -131,7 +133,9 @@ function M:tryDownload()
     -- 如果已经下载过，就不要再下载
     if io.exists(container.path) then
         for i, task in ipairs(container.tasks) do
-            task.succCallback(container.path)
+            if task.succCallback ~= nil then
+                task.succCallback(container.path)
+            end
         end
         return
     end
@@ -204,7 +208,9 @@ function M:onDownloadSucc(container)
     self:addFileToList(container.filename)
 
     for i, task in ipairs(container.tasks) do
-        task.succCallback(container.path)
+        if task.succCallback ~= nil then
+            task.succCallback(container.path)
+        end
     end
 end
 
@@ -215,7 +221,9 @@ function M:onDownloadFail(container, status)
     self:onDownloadOver(container)
 
     for i, task in ipairs(container.tasks) do
-        task.failCallback(status)
+        if task.failCallback ~= nil then
+            task.failCallback(status)
+        end
     end
 end
 
@@ -226,7 +234,9 @@ function M:onDownloadTimeout(container)
     self:onDownloadOver(container)
 
     for i, task in ipairs(container.tasks) do
-        task.timeoutCallback()
+        if task.timeoutCallback ~= nil then
+            task.timeoutCallback()
+        end
     end
 end
 
