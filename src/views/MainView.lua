@@ -16,9 +16,9 @@ function M:onCreate()
 end
 
 function M:download()
-    local url = "http://127.0.0.1:5000/x"
-    -- local url = "http://texas.qfighting.com/cdn/portrait/145754699"
-    -- local url = "http://texas.qfighting.com/cdn/portrait/145751725"
+    -- local url = "http://127.0.0.1:5000/x"
+    local url = "http://bbs.unpcn.com/attachment.aspx?attachmentid=4330041"
+    -- local url = "http://bbs.unpcn.com/attachment.aspx?attachmentid=4330045"
 
     local taskID = self.downloader:execute(url, 5,
         function (path)
