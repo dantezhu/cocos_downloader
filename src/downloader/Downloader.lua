@@ -6,7 +6,7 @@ M.LIST_FILE_NAME = "list.txt"
 
 M.STATUS_WAITING = 0
 M.STATUS_DOING = 1
-M.STATUS_DONE = 2
+M.STATUS_OVER = 2
 
 function M:ctor(directory, maxCacheNum, maxConcurrentNum)
     -- directory 存储目录
@@ -183,11 +183,11 @@ function M:download(container)
     xhr:send()
 end
 
-function M:onContainerDone(container)
+function M:onDownloadOver(container)
     -- 所有回调都要先执行的函数
 
     self.concurrentNum = self.concurrentNum - 1
-    container.status = self.STATUS_DONE
+    container.status = self.STATUS_OVER
     self:removeContainer(container)
 
     -- 先启动下一次下载，免得下一个函数里面抛异常
@@ -195,10 +195,10 @@ function M:onContainerDone(container)
 end
 
 function M:onDownloadSucc(container)
-    if container.status == self.STATUS_DONE then
+    if container.status == self.STATUS_OVER then
         return
     end
-    self:onContainerDone(container)
+    self:onDownloadOver(container)
 
     -- 删除老文件
     self:addFileToList(container.filename)
@@ -209,10 +209,10 @@ function M:onDownloadSucc(container)
 end
 
 function M:onDownloadFail(container, status)
-    if container.status == self.STATUS_DONE then
+    if container.status == self.STATUS_OVER then
         return
     end
-    self:onContainerDone(container)
+    self:onDownloadOver(container)
 
     for i, task in ipairs(container.tasks) do
         task.failCallback(status)
@@ -220,10 +220,10 @@ function M:onDownloadFail(container, status)
 end
 
 function M:onDownloadTimeout(container)
-    if container.status == self.STATUS_DONE then
+    if container.status == self.STATUS_OVER then
         return
     end
-    self:onContainerDone(container)
+    self:onDownloadOver(container)
 
     for i, task in ipairs(container.tasks) do
         task.timeoutCallback()
