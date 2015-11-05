@@ -7,7 +7,7 @@ function M:onCreate()
     local layer = cc.LayerColor:create(cc.c4b(0,0,255,255))
     self.root:addChild(layer)
 
-    self.downloader = require("share.Downloader").new("download", 2, 10)
+    self.downloader = require("downloader.Downloader").new("download", 2, 10)
 
     for i=1, 100, 1 do
         self:download()

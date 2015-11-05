@@ -222,7 +222,7 @@ function M:onDownloadTimeout(task)
 end
 
 function M:genNameByUrl(url)
-    local md5 = require("share.md5")
+    local md5 = require("downloader.md5")
     return md5.sumhexa(url)
 end
 
