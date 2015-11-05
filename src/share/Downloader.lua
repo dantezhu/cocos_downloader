@@ -4,6 +4,10 @@ local M = class("Downloader")
 
 M.LIST_FILE_NAME = "list.txt"
 
+M.STATUS_WAITING = 0
+M.STATUS_DOING = 1
+M.STATUS_DONE = 2
+
 function M:ctor(directory, maxCacheNum, maxConcurrentNum)
     -- directory 存储目录
     -- maxCacheNum 最多缓存的文件数量
@@ -75,7 +79,7 @@ function M:execute(url, timeout, succCallback, failCallback, timeoutCallback)
                 timeout=timeout,
                 path=path,
                 tasks={task},
-                doing=false,  -- 是否已经结束
+                status=self.STATUS_WAITING,
         })
     end
 
@@ -139,14 +143,12 @@ end
 function M:download(container)
 
     -- 忘记了这段代码
-    container.doing = true
+    container.status = self.STATUS_DOING
 
     local xhr = cc.XMLHttpRequest:new()
     xhr.responseType = cc.XMLHTTPREQUEST_RESPONSE_BLOB
     xhr:open("GET", container.url)
     xhr.timeout = container.timeout
-
-    local schdule = cc.Director:getInstance():getScheduler()
 
     -- 因为用XMLHttpRequest自己的timeout回调判断不出来status，404和超时都是0
     local timeoutEntry
@@ -181,12 +183,19 @@ function M:download(container)
     xhr:send()
 end
 
-function M:onDownloadSucc(container)
+function M:onContainerDone(container)
+    -- 所有回调都要先执行的函数
+
     self.concurrentNum = self.concurrentNum - 1
+    container.status = self.STATUS_DONE
     self:removeContainer(container)
 
     -- 先启动下一次下载，免得下一个函数里面抛异常
     self:tryDownload()
+end
+
+function M:onDownloadSucc(container)
+    self:onContainerDone()
 
     -- 删除老文件
     self:addFileToList(container.filename)
@@ -197,10 +206,7 @@ function M:onDownloadSucc(container)
 end
 
 function M:onDownloadFail(container, status)
-    self.concurrentNum = self.concurrentNum - 1
-    self:removeContainer(container)
-
-    self:tryDownload()
+    self:onContainerDone()
 
     for i, task in ipairs(container.tasks) do
         task.failCallback(status)
@@ -208,10 +214,7 @@ function M:onDownloadFail(container, status)
 end
 
 function M:onDownloadTimeout(task)
-    self.concurrentNum = self.concurrentNum - 1
-    self:removeContainer(container)
-
-    self:tryDownload()
+    self:onContainerDone()
 
     for i, task in ipairs(container.tasks) do
         task.timeoutCallback()
@@ -274,7 +277,7 @@ function M:findFirstWaitingContainer()
     -- 寻找还没有处理的第一个container
     for i, container in ipairs(self.containerQueue) do
         -- 没有在处理中
-        if not container.doing then
+        if container.status == self.STATUS_WAITING then
             return container
         end
     end
