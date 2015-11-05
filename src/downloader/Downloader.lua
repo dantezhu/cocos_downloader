@@ -195,7 +195,10 @@ function M:onContainerDone(container)
 end
 
 function M:onDownloadSucc(container)
-    self:onContainerDone()
+    if container.status == self.STATUS_DONE then
+        return
+    end
+    self:onContainerDone(container)
 
     -- 删除老文件
     self:addFileToList(container.filename)
@@ -206,15 +209,21 @@ function M:onDownloadSucc(container)
 end
 
 function M:onDownloadFail(container, status)
-    self:onContainerDone()
+    if container.status == self.STATUS_DONE then
+        return
+    end
+    self:onContainerDone(container)
 
     for i, task in ipairs(container.tasks) do
         task.failCallback(status)
     end
 end
 
-function M:onDownloadTimeout(task)
-    self:onContainerDone()
+function M:onDownloadTimeout(container)
+    if container.status == self.STATUS_DONE then
+        return
+    end
+    self:onContainerDone(container)
 
     for i, task in ipairs(container.tasks) do
         task.timeoutCallback()

@@ -7,21 +7,20 @@ function M:onCreate()
     local layer = cc.LayerColor:create(cc.c4b(0,0,255,255))
     self.root:addChild(layer)
 
-    self.downloader = require("downloader.Downloader").new("download", 2, 10)
+    self.downloader = require("downloader.Downloader").new("download", 1, 10)
 
-    for i=1, 100, 1 do
+    for i=1, 1, 1 do
         self:download()
     end
     -- neon.logger:debug("removeTask: " .. tostring(self.downloader:removeTask(3)))
 end
 
 function M:download()
-    -- local url = "http://127.0.0.1:5000/x"
-    local url = "http://texas.qfighting.com/cdn/portrait/145754699"
-    -- local url = "http://www.jb51.net/article/64418.htm"
-    -- local url = "http://blog.csdn.net/yuanfengyun/article/details/23408549"
+    local url = "http://127.0.0.1:5000/x"
+    -- local url = "http://texas.qfighting.com/cdn/portrait/145754699"
+    -- local url = "http://texas.qfighting.com/cdn/portrait/145751725"
 
-    local taskID = self.downloader:execute(url, 10,
+    local taskID = self.downloader:execute(url, 5,
         function (path)
             neon.logger:debug(path)
         end, 
