@@ -90,6 +90,27 @@ function M:execute(url, timeout, succCallback, failCallback, timeoutCallback)
     return taskID
 end
 
+-- 通过url删除文件
+function M:removeFile(url)
+    local to_remove_filename = self:genNameByUrl(url)
+    local to_remove_path = self.directory .. to_remove_filename
+
+    -- 如果不存在直接返回即可
+    if not io.exists(to_remove_path) then
+        return
+    end
+
+    os.remove(to_remove_path)
+
+    for i, filename in ipairs(self.filenameList) do
+        if filename == to_remove_filename then
+            table.remove(self.filenameList, i)
+            self:writeToListFile(self.filenameList)
+            return
+        end
+    end
+end
+
 function M:removeTask(taskID)
     -- 通过taskID删除任务，但是已经启动的任务似乎已经没法删除了
     local found = false

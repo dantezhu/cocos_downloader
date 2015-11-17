@@ -23,6 +23,8 @@ function M:download()
     local taskID = self.downloader:execute(url, 5,
         function (path)
             neon.logger:debug(path)
+
+            -- self.downloader:removeFile(url)
         end, 
         function (code)
             neon.logger:debug(code)
