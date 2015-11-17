@@ -2,6 +2,8 @@ require("json")
 
 local M = class("Downloader")
 
+local md5 = require(".md5")
+
 M.LIST_FILE_NAME = "list.txt"
 
 M.STATUS_WAITING = 0
@@ -267,7 +269,6 @@ function M:onDownloadTimeout(container)
 end
 
 function M:genNameByUrl(url)
-    local md5 = require("downloader.md5")
     return md5.sumhexa(url)
 end
 
