@@ -27,8 +27,19 @@ function M:ctor(directory, maxCacheNum, maxConcurrentNum)
     self.concurrentNum = 0
     -- 任务序列号
     self.taskSeqNum = 0
-    -- 下载队列 每个元素格式为 {url: url, tasks: [task, task]}
-    self.containerQueue = {}
+    -- 下载队列 每个元素格式为
+    -- {
+    --      id=taskID,
+    --      url=url,
+    --      status=self.STATUS_WAITING,
+    --      timeout=timeout,
+    --      filename=filename,  -- 名字用来存在list文件里
+    --      path=path,
+    --      succCallback=succCallback,
+    --      failCallback=failCallback,
+    --      timeoutCallback=timeoutCallback,
+    -- }
+    self.taskQueue = {}
 
     -- 创建目录，依赖lfs
     -- 如果想要不调用到lfs，就提前把目录建立好
@@ -68,24 +79,18 @@ function M:execute(url, timeout, succCallback, failCallback, timeoutCallback)
 
     local task = {
         id=taskID,
+        url=url,
+        timeout=timeout,
+        status=self.STATUS_WAITING,
+        filename=filename,  -- 名字用来存在list文件里
+        path=path,
         succCallback=succCallback,
         failCallback=failCallback,
         timeoutCallback=timeoutCallback,
     }
 
-    local container = self:findDownloadContainer(url)
-    if container then
-        table.insert(container.tasks, task)
-    else
-        table.insert(self.containerQueue, {
-                filename=filename,  -- 名字用来存在list文件里
-                url=url,
-                timeout=timeout,
-                path=path,
-                tasks={task},
-                status=self.STATUS_WAITING,
-        })
-    end
+    -- 放到队列尾部
+    table.insert(self.taskQueue, task)
 
     self:tryDownload()
 
@@ -120,25 +125,11 @@ end
 
 function M:removeTask(taskID)
     -- 通过taskID删除任务，但是已经启动的任务似乎已经没法删除了
-    local found = false
 
-    for i, container in ipairs(self.containerQueue) do
-        for j, task in ipairs(container.tasks) do
-            if task.id == taskID then
-                table.remove(container.tasks, j)
-                -- 找到就break
-                found = true
-                break
-            end
-        end
-
-        if found then
-            if #container.tasks == 0 then
-                -- 可以删掉了
-                table.remove(self.containerQueue, i)
-            end
-
-            -- 找到了就退出
+    for i, task in ipairs(self.taskQueue) do
+        if task.id == taskID then
+            table.remove(self.taskQueue, i)
+            -- 找到
             return true
         end
     end
@@ -147,49 +138,44 @@ function M:removeTask(taskID)
 end
 
 function M:tryDownload()
-    local container = self:findFirstWaitingContainer()
-    -- 没有的话，就返回就好
-    if not container then
-        return
-    end
-
     -- 超过最大并发也返回
     if self.concurrentNum >= self.maxConcurrentNum then
         return
     end
 
+    -- 删除的是头部
+    local task = table.remove(self.taskQueue, 1)
+
     -- 如果已经下载过，就不要再下载
-    if io.exists(container.path) then
-        for i, task in ipairs(container.tasks) do
-            if task.succCallback ~= nil then
-                task.succCallback(container.path)
-            end
+    if io.exists(task.path) then
+        if task.succCallback ~= nil then
+            task.succCallback(task.path)
         end
         return
     end
 
     -- 启动下载
-    self:download(container)
+    self:download(task)
 end
 
-function M:download(container)
+function M:download(task)
 
     -- 忘记了这段代码
-    container.status = self.STATUS_DOING
+    task.status = self.STATUS_DOING
 
     local xhr = cc.XMLHttpRequest:new()
     xhr.responseType = cc.XMLHTTPREQUEST_RESPONSE_BLOB
-    xhr:open("GET", container.url)
-    xhr.timeout = container.timeout
+    xhr:open("GET", task.url)
+    xhr.timeout = task.timeout
 
     -- 因为用XMLHttpRequest自己的timeout回调判断不出来status，404和超时都是0
     local timeoutEntry
     local function innerOnTimeout ()
         xhr:abort()
-        self:onDownloadTimeout(container)
+        self:onDownloadTimeout(task)
     end
 
-    timeoutEntry = self:scheduleScriptFuncOnce(innerOnTimeout, container.timeout)
+    timeoutEntry = self:scheduleScriptFuncOnce(innerOnTimeout, task.timeout)
 
     local function onReadyStateChange()
         self:unscheduleEntry(timeoutEntry)
@@ -197,16 +183,16 @@ function M:download(container)
         -- print ("status: " .. xhr.status)
 
         if not (xhr.status>=200 and xhr.status<300) then
-            self:onDownloadFail(container, xhr.status)
+            self:onDownloadFail(task, xhr.status)
             return
         end
 
         -- 有可能这个时候path已经存在了，不过就先还是写吧
-        local f = assert(io.open(container.path, "wb"))
+        local f = assert(io.open(task.path, "wb"))
         f:write(xhr.response)
         f:close()
 
-        self:onDownloadSucc(container)
+        self:onDownloadSucc(task)
     end
 
     xhr:registerScriptHandler(onReadyStateChange)
@@ -215,56 +201,49 @@ function M:download(container)
     xhr:send()
 end
 
-function M:onDownloadOver(container)
+function M:onDownloadOver(task)
     -- 所有回调都要先执行的函数
 
     self.concurrentNum = self.concurrentNum - 1
-    container.status = self.STATUS_OVER
-    self:removeContainer(container)
+    task.status = self.STATUS_OVER
 
     -- 先启动下一次下载，免得下一个函数里面抛异常
     self:tryDownload()
 end
 
-function M:onDownloadSucc(container)
-    if container.status == self.STATUS_OVER then
+function M:onDownloadSucc(task)
+    if task.status == self.STATUS_OVER then
         return
     end
-    self:onDownloadOver(container)
+    self:onDownloadOver(task)
 
     -- 删除老文件
-    self:addFileToList(container.filename)
+    self:addFileToList(task.filename)
 
-    for i, task in ipairs(container.tasks) do
-        if task.succCallback ~= nil then
-            task.succCallback(container.path)
-        end
+    if task.succCallback ~= nil then
+        task.succCallback(task.path)
     end
 end
 
-function M:onDownloadFail(container, status)
-    if container.status == self.STATUS_OVER then
+function M:onDownloadFail(task, status)
+    if task.status == self.STATUS_OVER then
         return
     end
-    self:onDownloadOver(container)
+    self:onDownloadOver(task)
 
-    for i, task in ipairs(container.tasks) do
-        if task.failCallback ~= nil then
-            task.failCallback(status)
-        end
+    if task.failCallback ~= nil then
+        task.failCallback(status)
     end
 end
 
-function M:onDownloadTimeout(container)
-    if container.status == self.STATUS_OVER then
+function M:onDownloadTimeout(task)
+    if task.status == self.STATUS_OVER then
         return
     end
-    self:onDownloadOver(container)
+    self:onDownloadOver(task)
 
-    for i, task in ipairs(container.tasks) do
-        if task.timeoutCallback ~= nil then
-            task.timeoutCallback()
-        end
+    if task.timeoutCallback ~= nil then
+        task.timeoutCallback()
     end
 end
 
@@ -305,40 +284,6 @@ end
 
 function M:unscheduleEntry(entryID)
     cc.Director:getInstance():getScheduler():unscheduleScriptEntry(entryID)
-end
-
-function M:findDownloadContainer(url)
-    -- 寻找相同url的container
-
-    for i, container in ipairs(self.containerQueue) do
-        if container.url == url then
-            return container
-        end
-    end
-
-    return nil
-end
-
-function M:findFirstWaitingContainer()
-    -- 寻找还没有处理的第一个container
-    for i, container in ipairs(self.containerQueue) do
-        -- 没有在处理中
-        if container.status == self.STATUS_WAITING then
-            return container
-        end
-    end
-
-    return nil
-end
-
-function M:removeContainer(container)
-    for i, saved_container in ipairs(self.containerQueue) do
-        -- 没有在处理中
-        if saved_container == container then
-            table.remove(self.containerQueue, i)
-            return
-        end
-    end
 end
 
 function M:readFromListFile()
