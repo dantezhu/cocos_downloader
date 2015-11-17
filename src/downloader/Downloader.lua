@@ -165,6 +165,9 @@ function M:tryDownload()
                 task.succCallback(container.path)
             end
         end
+
+        -- 要继续尝试tryDownload
+        self:tryDownload()
         return
     end
 
