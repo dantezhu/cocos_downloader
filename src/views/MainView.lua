@@ -7,7 +7,7 @@ function M:onCreate()
     local layer = cc.LayerColor:create(cc.c4b(0,0,255,255))
     self.root:addChild(layer)
 
-    self.downloader = require("downloader.Downloader").new("download", 1, 10)
+    self.downloader = require("downloader.Downloader").new("download", 10, 10)
 
     for i=1, 1, 1 do
         self:download()
@@ -17,8 +17,8 @@ end
 
 function M:download()
     -- local url = "http://127.0.0.1:5000/x"
-    local url = "http://bbs.unpcn.com/attachment.aspx?attachmentid=4330041"
-    -- local url = "http://bbs.unpcn.com/attachment.aspx?attachmentid=4330045"
+    -- local url = "http://bbs.unpcn.com/attachment.aspx?attachmentid=4330041"
+    local url = "http://bbs.unpcn.com/attachment.aspx?attachmentid=4330045"
 
     local taskID = self.downloader:execute(url, 5,
         function (path)

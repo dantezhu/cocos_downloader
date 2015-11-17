@@ -145,12 +145,18 @@ function M:tryDownload()
 
     -- 删除的是头部
     local task = table.remove(self.taskQueue, 1)
+    if task == nil then
+        return
+    end
 
     -- 如果已经下载过，就不要再下载
     if io.exists(task.path) then
         if task.succCallback ~= nil then
             task.succCallback(task.path)
         end
+
+        -- 要继续尝试tryDownload
+        self:tryDownload()
         return
     end
 
