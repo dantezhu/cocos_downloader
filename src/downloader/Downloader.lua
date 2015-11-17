@@ -90,6 +90,11 @@ function M:execute(url, timeout, succCallback, failCallback, timeoutCallback)
     return taskID
 end
 
+-- 通过url获取文件路径
+function M:getFilePathByUrl(url)
+    return self.directory .. self:genNameByUrl(url)
+end
+
 -- 通过url删除文件
 function M:removeFile(url)
     local to_remove_filename = self:genNameByUrl(url)
