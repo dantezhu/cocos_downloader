@@ -2,7 +2,7 @@ require("json")
 
 local M = class("Downloader")
 
-local md5 = require(".md5")
+local md5 = import(".md5")
 
 M.LIST_FILE_NAME = "list.txt"
 
