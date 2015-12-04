@@ -56,10 +56,10 @@ function M:execute(url, timeout, succCallback, failCallback, timeoutCallback)
 
     -- 如果已经下载过了，当然就直接用就好了
     -- 并且不需要再去检测下载，以为不影响下载并发数
-    if io.exists(path) then
+    if self:isValidFile(path) then
         -- 延迟一个帧，因为调用方可能还想存下taskID
         self:scheduleScriptFuncOnce(function ()
-                if succCallback ~= nil then
+                if self:isValidFile(path) and succCallback ~= nil then
                     succCallback(path)
                 end
         end, 0)
@@ -159,7 +159,7 @@ function M:tryDownload()
     end
 
     -- 如果已经下载过，就不要再下载
-    if io.exists(container.path) then
+    if self:isValidFile(container.path) then
         for i, task in ipairs(container.tasks) do
             if task.succCallback ~= nil then
                 task.succCallback(container.path)
@@ -167,7 +167,10 @@ function M:tryDownload()
         end
 
         -- 要继续尝试tryDownload
-        self:tryDownload()
+        -- 使用schedule，否则会出现无限递归
+        self:scheduleScriptFuncOnce(function ()
+                self:tryDownload()
+        end, 0)
         return
     end
 
@@ -239,7 +242,7 @@ function M:onDownloadSucc(container)
     self:addFileToList(container.filename)
 
     for i, task in ipairs(container.tasks) do
-        if task.succCallback ~= nil then
+        if self:isValidFile(container.path) and task.succCallback ~= nil then
             task.succCallback(container.path)
         end
     end
@@ -367,6 +370,25 @@ function M:writeToListFile(list)
     local file = assert(io.open(path, "w"))
     file:write(json.encode(list))
     file:close()
+end
+
+function M:isValidFile(path)
+    -- 判断文件存在，并且文件长度大于0
+ 
+    local valid = false
+    local f = io.open(path, "rb")
+    if f then
+        if f:seek("end") > 0 then
+            valid = true
+        else
+            valid = false
+        end
+        f:close()
+    else
+        valid = false
+    end
+
+    return valid
 end
 
 
