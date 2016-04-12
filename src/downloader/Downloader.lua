@@ -361,7 +361,13 @@ function M:readFromListFile()
         return {}
     end
 
-    return json.decode(content)
+    local succ, ret = pcall(json.decode, content)
+    if succ then
+        return ret
+    else
+        -- 出现过写入时杀掉进程，导致之后再也无法进入的bug
+        return {}
+    end
 end
 
 function M:writeToListFile(list)
