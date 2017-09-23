@@ -184,8 +184,8 @@ function M:download(container)
     container.status = self.STATUS_DOING
 
     local xhr = cc.XMLHttpRequest:new()
-    xhr.responseType = cc.XMLHTTPREQUEST_RESPONSE_BLOB
     xhr:open("GET", container.url)
+    xhr.responseType = cc.XMLHTTPREQUEST_RESPONSE_BLOB
     xhr.timeout = container.timeout
 
     -- 因为用XMLHttpRequest自己的timeout回调判断不出来status，404和超时都是0
